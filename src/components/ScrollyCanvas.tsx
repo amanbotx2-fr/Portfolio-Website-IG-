@@ -105,6 +105,8 @@ export function ScrollyCanvas() {
           ref={canvasRef}
           className="absolute inset-0 w-full h-full block bg-[#121212]"
         />
+        {/* Bottom gradient to hide Veo watermark */}
+        <div className="absolute bottom-0 left-0 w-full h-36 bg-gradient-to-t from-[#121212] via-[#121212]/80 to-transparent z-10 pointer-events-none" />
         {/* Optional loading state */}
         {!imagesLoaded && (
           <div className="absolute inset-0 flex items-center justify-center bg-[#121212] z-50 text-white font-mono text-sm tracking-widest">
