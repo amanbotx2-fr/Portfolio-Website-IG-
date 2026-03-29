@@ -3,10 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useScroll, useTransform, motion } from "framer-motion";
 
-const FRAME_COUNT = 120; // 000 to 119
-
-// Format number to 3 digits, e.g., 5 -> "005"
-const formatFrameNumber = (num: number) => num.toString().padStart(3, "0");
+const FRAME_COUNT = 120;
+const FRAME_PATH = (i: number) =>
+  `/sequence/frame_${i.toString().padStart(3, "0")}_delay-0.066s.webp`;
 
 export function ScrollyCanvas() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -14,7 +13,6 @@ export function ScrollyCanvas() {
   const [images, setImages] = useState<HTMLImageElement[]>([]);
   const [imagesLoaded, setImagesLoaded] = useState(false);
 
-  // Scroll mapping
   const { scrollYProgress } = useScroll({
     target: containerRef,
     offset: ["start start", "end end"],
@@ -22,16 +20,14 @@ export function ScrollyCanvas() {
 
   const frameIndex = useTransform(scrollYProgress, [0, 1], [0, FRAME_COUNT - 1]);
 
+  // Load all frames in background
   useEffect(() => {
-    // Preload images
     let loadedCount = 0;
     const loadedImages: HTMLImageElement[] = [];
 
     for (let i = 0; i < FRAME_COUNT; i++) {
       const img = new Image();
-      // Files format: frame_000_delay-0.066s.png
-      img.src = `/sequence/frame_${formatFrameNumber(i)}_delay-0.066s.png`;
-      
+      img.src = FRAME_PATH(i);
       img.onload = () => {
         loadedCount++;
         if (loadedCount === FRAME_COUNT) {
@@ -43,7 +39,7 @@ export function ScrollyCanvas() {
     }
   }, []);
 
-  // Update canvas when frameIndex changes
+  // Canvas rendering
   useEffect(() => {
     if (!imagesLoaded || !canvasRef.current) return;
 
@@ -51,10 +47,8 @@ export function ScrollyCanvas() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Draw the initial frame
     const renderFrame = (index: number) => {
       if (!images[index]) return;
-
       const img = images[index];
       const canvasRatio = canvas.width / canvas.height;
       const imgRatio = img.width / img.height;
@@ -64,7 +58,6 @@ export function ScrollyCanvas() {
       let offsetX = 0;
       let offsetY = 0;
 
-      // Object-fit: cover logic
       if (imgRatio > canvasRatio) {
         drawWidth = canvas.height * imgRatio;
         offsetX = (canvas.width - drawWidth) / 2;
@@ -77,7 +70,6 @@ export function ScrollyCanvas() {
       ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
     };
 
-    // Keep internal canvas resolution synced to viewport
     const resizeCanvas = () => {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
@@ -85,9 +77,8 @@ export function ScrollyCanvas() {
     };
 
     window.addEventListener("resize", resizeCanvas);
-    resizeCanvas(); // Initial setup
+    resizeCanvas();
 
-    // Subscribe to framer-motion transform updates
     const unsubscribe = frameIndex.on("change", (latest) => {
       requestAnimationFrame(() => renderFrame(Math.round(latest)));
     });
@@ -101,18 +92,30 @@ export function ScrollyCanvas() {
   return (
     <div ref={containerRef} className="relative w-full" style={{ height: "500vh" }}>
       <div className="sticky top-0 w-full h-screen overflow-hidden">
+        {/* INSTANT: Show frame 0 as a static image while canvas loads */}
+        <img
+          src={FRAME_PATH(0)}
+          alt=""
+          fetchPriority="high"
+          className="absolute inset-0 w-full h-full object-cover"
+          style={{
+            opacity: imagesLoaded ? 0 : 1,
+            transition: "opacity 0.6s ease-out",
+          }}
+        />
+
+        {/* Canvas takes over once all frames are ready */}
         <canvas
           ref={canvasRef}
-          className="absolute inset-0 w-full h-full block bg-[#121212]"
+          className="absolute inset-0 w-full h-full block"
+          style={{
+            opacity: imagesLoaded ? 1 : 0,
+            transition: "opacity 0.6s ease-out",
+          }}
         />
+
         {/* Bottom gradient to hide Veo watermark */}
         <div className="absolute bottom-0 left-0 w-full h-36 bg-gradient-to-t from-[#121212] via-[#121212]/80 to-transparent z-10 pointer-events-none" />
-        {/* Optional loading state */}
-        {!imagesLoaded && (
-          <div className="absolute inset-0 flex items-center justify-center bg-[#121212] z-50 text-white font-mono text-sm tracking-widest">
-            LOADING EXPERIENCE...
-          </div>
-        )}
       </div>
     </div>
   );
